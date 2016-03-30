@@ -1,21 +1,6 @@
-if RUBY_VERSION == '1.9.2' && RUBY_PATCHLEVEL < 290 && RUBY_ENGINE != "macruby"
-  # In Ruby 1.9.2 versions before patchlevel 290, the default Psych
-  # parser has an issue with YAML merge keys, which
-  # fixtures/mock_facebook_responses.yml relies heavily on.
-  #
-  # Anyone using an earlier version will see missing mock response
-  # errors when running the test suite similar to this:
-  #
-  # RuntimeError:
-  #   Missing a mock response for graph_api: /me/videos: source=[FILE]: post: with_token
-  #   API PATH: /me/videos?source=[FILE]&format=json&access_token=*
-  #
-  # For now, it seems the best fix is to just downgrade to the old syck YAML parser
-  # for these troubled versions.
-  #
-  # See https://github.com/tenderlove/psych/issues/8 for more details
-  YAML::ENGINE.yamler = 'syck'
-end
+# Quantify coverage
+require "codeclimate-test-reporter"
+CodeClimate::TestReporter.start
 
 # load the library
 require 'koala'
@@ -28,3 +13,13 @@ Dir["#{File.dirname(__FILE__)}/support/**/*.rb"].each { |f| require f }
 KoalaTest.setup_test_environment!
 
 BEACH_BALL_PATH = File.join(File.dirname(__FILE__), "fixtures", "beach.jpg")
+
+RSpec.configure do |config|
+  config.mock_with :rspec do |mocks|
+    # This option should be set when all dependencies are being loaded
+    # before a spec run, as is the case in a typical spec helper. It will
+    # cause any verifying double instantiation for a class that does not
+    # exist to raise, protecting against incorrectly spelt names.
+    mocks.verify_doubled_constant_names = true
+  end
+end

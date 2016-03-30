@@ -125,6 +125,10 @@ module Koala
       #     end
       #   end
       def validate_update(body, headers)
+        unless @secret
+          raise AppSecretNotDefinedError, "You must init RealtimeUpdates with your app secret in order to validate updates"
+        end
+
         if request_signature = headers['X-Hub-Signature'] || headers['HTTP_X_HUB_SIGNATURE'] and
            signature_parts = request_signature.split("sha1=")
           request_signature = signature_parts[1]
@@ -136,12 +140,6 @@ module Koala
       # The Facebook subscription management URL for your application.
       def subscription_path
         @subscription_path ||= "#{@app_id}/subscriptions"
-      end
-
-      # @private
-      def graph_api
-        Koala::Utils.deprecate("the TestUsers.graph_api accessor is deprecated and will be removed in a future version; please use .api instead.")
-        @api
       end
     end
   end
