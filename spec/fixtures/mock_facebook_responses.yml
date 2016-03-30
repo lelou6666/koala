@@ -63,7 +63,10 @@ graph_api:
         with_token: '[{"code": 200, "body":"{\"id\":\"123\"}"}, {"code": 200, "body":"{\"id\":\"456\"}"}]'
     batch=<%= MultiJson.dump([{"method" => "get", "relative_url" => "me/picture"}]) %>:
       post:
-        with_token: '[{"code": 200, "headers":[{"name":"Location","value":"http://google.com"}]}]'
+        with_token: '[{"code": 302, "headers":[{"name":"Location","value":"http://google.com"}]}]'
+    batch=<%= MultiJson.dump([{"method" => "get", "relative_url" => "me/picture?redirect=false"}]) %>:
+      post:
+        with_token: '[{"code": 200, "body":"{\"data\":{\"is_silhouette\":false,\"url\":\"http:\/\/google.com\"}}"}]'
     batch=<%= MultiJson.dump([{"method" => "get", "relative_url" => "me"},{"method" => "get", "relative_url" => "me/friends"}]) %>:
       post:
         with_token: '[{"code": 200, "body":"{\"id\":\"koppel\"}"}, {"code": 200, "body":"{\"data\":[{\"id\":\"lukeshepard\"}],\"paging\":{}}"}]'
@@ -147,9 +150,14 @@ graph_api:
     link=http://oauth.twoalex.com/&message=Hello, world, from the test suite again!&name=OAuth Playground:
       post:
         with_token: '{"id": "FEED_ITEM_CONTEXT"}'
-    link=http://oauth.twoalex.com/&message=body&name=It's a big question&picture=http://oauth.twoalex.com//images/logo.png&properties=<%= MultiJson.encode([{"name"=>"Link1'", "text"=>"Left", "href"=>"http://oauth.twoalex.com/"}, {"name"=>"other", "text"=>"Straight ahead"}]) %>&type=link:
+    link=http://oauth.twoalex.com/&message=body&name=It's a big question&picture=http://oauth.twoalex.com//images/logo.png&properties=<%= MultiJson.encode({"Link1"=>{"text"=>"Left", "href"=>"http://oauth.twoalex.com/"}, "other" => {"text"=>"Straight ahead", "href"=>"http://oauth.twoalex.com/?"}}) %>&type=link:
       post:
-        with_token: '{"id": "FEED_ITEM_CONTEXT"}'
+        with_token: '{"id": "FEED_ITEM_DICTIONARY"}'
+
+  /me/picture:
+    redirect=false:
+      no_token: '{ "data": { "is_silhouette": true, "url": "https://facebook.com" } }'
+      with_token: '{ "data": { "is_silhouette": true, "url": "https://facebook.com" } }'
 
   /me/photos:
     source=[FILE]:
@@ -178,6 +186,14 @@ graph_api:
       post:
         <<: *token_required
         with_token: '{"id": "MOCK_PHOTO"}'
+    file_url=http://techslides.com/demos/sample-videos/small.mp4:
+      post:
+        <<: *token_required
+        with_token: '{"id": "MOCK_PHOTO_FROM_URL"}'
+    description=my message&file_url=http://techslides.com/demos/sample-videos/small.mp4:
+      post:
+        <<: *token_required
+        with_token: '{"id": "MOCK_PHOTO_FROM_URL"}'
 
   /koppel:
     no_args:
@@ -224,6 +240,14 @@ graph_api:
           code: 302
           headers:
             Location: https://facebook.com/large
+    redirect=false:
+      get:
+        no_token: '{ "data": { "is_silhouette": true, "url": "https://facebook.com" } }'
+        with_token: '{ "data": { "is_silhouette": true, "url": "https://facebook.com" } }'
+    redirect=false&type=large:
+      get:
+        no_token: '{ "data": { "is_silhouette": true, "url": "https://facebook.com/large" } }'
+        with_token: '{ "data": { "is_silhouette": true, "url": "https://facebook.com/large" } }'
 
   /comments:
     ids=http://developers.facebook.com/blog/post/472:
@@ -302,7 +326,7 @@ graph_api:
     client_id=<%= APP_ID %>&client_secret=<%= SECRET %>&code=foo&redirect_uri=<%= OAUTH_DATA["callback_url"] %>:
       get:
         <<: *oauth_error
-    client_id=<%= APP_ID %>&client_secret=<%= SECRET %>&type=client_cred:
+    client_id=<%= APP_ID %>&client_secret=<%= SECRET %>&grant_type=client_credentials:
       post:
         no_token: access_token=<%= APP_ACCESS_TOKEN %>
     client_id=<%= APP_ID %>&client_secret=<%= SECRET %>&fb_exchange_token=<%= ACCESS_TOKEN %>&grant_type=fb_exchange_token:
@@ -392,6 +416,12 @@ graph_api:
       <<: *item_deleted
       get:
         with_token: '{"link":"http://oauth.twoalex.com/", "message": "Hello, world, from the test suite again!", "name": "OAuth Playground"}'
+
+  /FEED_ITEM_DICTIONARY:
+    no_args:
+      <<: *item_deleted
+      get:
+        with_token: '{"link":"http://oauth.twoalex.com/", "name": "OAuth Playground", "properties": {}}'
 
   /FEED_ITEM_CATS:
     no_args:

@@ -96,7 +96,11 @@ module Koala
         while (test_user_list = list(options)).length > 0
           # avoid infinite loops if Facebook returns buggy users you can't delete
           # see http://developers.facebook.com/bugs/223629371047398
-          break if test_user_list == previous_list
+          # since the hashes may change across calls, even if the IDs don't,
+          # we just compare the IDs.
+          test_user_ids = test_user_list.map {|u| u['id']}
+          previous_user_ids = (previous_list || []).map {|u| u['id']}
+          break if (test_user_ids - previous_user_ids).empty?
 
           test_user_list.each_slice(50) do |users|
             self.api.batch(options) {|batch_api| users.each {|u| batch_api.delete_object(u["id"]) }}
@@ -162,7 +166,7 @@ module Koala
       #
       # @return the list of users created
       def create_network(network_size, installed = true, permissions = '', options = {})
-        users = (0...network_size).collect { create(installed, permissions, options) }
+        users = (0...network_size).collect { create(installed, permissions, {}, options) }
         friends = users.clone
         users.each do |user|
           # Remove this user from list of friends

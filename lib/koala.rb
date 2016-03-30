@@ -15,6 +15,7 @@ require 'koala/http_service'
 # miscellaneous
 require 'koala/utils'
 require 'koala/version'
+require 'ostruct'
 
 module Koala
   # A Ruby client library for the Facebook Platform.
@@ -29,8 +30,38 @@ module Koala
     # In theory, you could write your own HTTPService module if you need different functionality,
     # but since the switch to {https://github.com/arsduo/koala/wiki/HTTP-Services Faraday} almost all such goals can be accomplished with middleware.
     attr_accessor :http_service
+
+    def configure
+      yield config
+    end
+
+    # Allows you to control various Koala configuration options.
+    # Notable options:
+    #   * server endpoints: you can override any or all the server endpoints
+    #   (see HTTPService::DEFAULT_SERVERS) if you want to run requests through
+    #   other servers.
+    #   * api_version: controls which Facebook API version to use (v1.0, v2.0,
+    #   etc)
+    def config
+      @config ||= OpenStruct.new(HTTPService::DEFAULT_SERVERS)
+    end
+
+    # Used for testing.
+    def reset_config
+      @config = nil
+    end
   end
 
+<<<<<<< HEAD
+=======
+  # @private
+  # Switch the HTTP service -- mostly used for testing.
+  def self.http_service=(service)
+    # if it's a real http_service, use it
+    @http_service = service
+  end
+
+>>>>>>> refs/remotes/arsduo/master
   # An convenenient alias to Koala.http_service.make_request.
   def self.make_request(path, args, verb, options = {})
     http_service.make_request(path, args, verb, options)

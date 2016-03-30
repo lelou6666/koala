@@ -4,9 +4,6 @@ require 'base64'
 
 module Koala
   module Facebook
-
-    DIALOG_HOST = "www.facebook.com"
-
     class OAuth
       attr_reader :app_id, :app_secret, :oauth_callback_url
 
@@ -58,6 +55,9 @@ module Koala
       #
       # @param options any query values to add to the URL, as well as any special/required values listed below.
       # @option options permissions an array or comma-separated string of desired permissions
+      # @option options state a unique string to serve as a CSRF (cross-site request
+      #                 forgery) token -- highly recommended for security. See
+      #                 https://developers.facebook.com/docs/howtos/login/server-side-login/
       #
       # @raise ArgumentError if no OAuth callback was specified in OAuth#new or in options as :redirect_uri
       #
@@ -70,7 +70,7 @@ module Koala
         url_options = {:client_id => @app_id}.merge(options)
 
         # Creates the URL for oauth authorization for a given callback and optional set of permissions
-        build_url("https://#{GRAPH_SERVER}/oauth/authorize", true, url_options)
+        build_url(:dialog_host, "/dialog/oauth", true, url_options)
       end
 
       # Once you receive an OAuth code, you need to redeem it from Facebook using an appropriate URL.
@@ -94,7 +94,7 @@ module Koala
           :code => code,
           :client_secret => @app_secret
         }.merge(options)
-        build_url("https://#{GRAPH_SERVER}/oauth/access_token", true, url_options)
+        build_url(:graph_server, "/oauth/access_token", true, url_options)
       end
 
       # Builds a URL for a given dialog (feed, friends, OAuth, pay, send, etc.)
@@ -109,7 +109,35 @@ module Koala
       def url_for_dialog(dialog_type, options = {})
         # some endpoints require app_id, some client_id, supply both doesn't seem to hurt
         url_options = {:app_id => @app_id, :client_id => @app_id}.merge(options)
-        build_url("http://#{DIALOG_HOST}/dialog/#{dialog_type}", true, url_options)
+        build_url(:dialog_host, "/dialog/#{dialog_type}", true, url_options)
+      end
+
+      # Generates a 'client code' from a server side long-lived access token. With the generated
+      # code, it can be sent to a client application which can then use it to get a long-lived
+      # access token from Facebook. After which the clients can use that access token to make
+      # requests to Facebook without having to use the server token, yet the server access token
+      # remains valid.
+      # See https://developers.facebook.com/docs/facebook-login/access-tokens/#long-via-code
+      #
+      # @param access_token a user's long lived (server) access token
+      #
+      # @raise Koala::Facebook::ServerError if Facebook returns a server error (status >= 500)
+      # @raise Koala::Facebook::OAuthTokenRequestError if Facebook returns an error response (status >= 400)
+      # @raise Koala::Facebook::BadFacebookResponse if Facebook returns a blank response
+      # @raise Koala::KoalaError if response does not contain 'code' hash key
+      #
+      # @return a string of the generated 'code'
+      def generate_client_code(access_token)
+        response = fetch_token_string({:redirect_uri => @oauth_callback_url, :access_token => access_token}, false, 'client_code')
+
+        # Facebook returns an empty body in certain error conditions
+        if response == ''
+          raise BadFacebookResponse.new(200, '', 'generate_client_code received an error: empty response body')
+        else
+          result = MultiJson.load(response)
+        end
+
+        result.has_key?('code') ? result['code'] : raise(Koala::KoalaError.new("Facebook returned a valid response without the expected 'code' in the body (response = #{response})"))
       end
 
       # access tokens
@@ -158,7 +186,7 @@ module Koala
       # @return the application access token and other information (expiration, etc.)
       def get_app_access_token_info(options = {})
         # convenience method to get a the application's sessionless access token
-        get_token_from_server({:type => 'client_cred'}, true, options)
+        get_token_from_server({:grant_type => 'client_credentials'}, true, options)
       end
 
       # Fetches the application's access token (ignoring expiration and other info).
@@ -169,7 +197,7 @@ module Koala
       # @return the application access token
       def get_app_access_token(options = {})
         if info = get_app_access_token_info(options)
-          string = info["access_token"]
+          info["access_token"]
         end
       end
 
@@ -232,11 +260,12 @@ module Koala
       end
 
       def parse_access_token(response_text)
-        components = response_text.split("&").inject({}) do |hash, bit|
+        MultiJson.load(response_text)
+      rescue MultiJson::LoadError
+        response_text.split("&").inject({}) do |hash, bit|
           key, value = bit.split("=")
           hash.merge!(key => value)
         end
-        components
       end
 
       def parse_unsigned_cookie(fb_cookie)
@@ -292,12 +321,21 @@ module Koala
         Base64.decode64(str.tr('-_', '+/'))
       end
 
-      def build_url(base, require_redirect_uri = false, url_options = {})
-        if require_redirect_uri && !(url_options[:redirect_uri] ||= url_options.delete(:callback) || @oauth_callback_url)
-          raise ArgumentError, "url_for_dialog must get a callback either from the OAuth object or in the parameters!"
+      def server_url(type)
+        url = "https://#{Koala.config.send(type)}"
+        if version = Koala.config.api_version
+          "#{url}/#{version}"
+        else
+          url
         end
+      end
 
-        "#{base}?#{Koala::HTTPService.encode_params(url_options)}"
+      def build_url(type, path, require_redirect_uri = false, url_options = {})
+        if require_redirect_uri && !(url_options[:redirect_uri] ||= url_options.delete(:callback) || @oauth_callback_url)
+          raise ArgumentError, "build_url must get a callback either from the OAuth object or in the parameters!"
+        end
+        params = Koala::HTTPService.encode_params(url_options)
+        "#{server_url(type)}#{path}?#{params}"
       end
     end
   end

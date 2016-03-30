@@ -23,6 +23,23 @@ module Koala
       builder.adapter Faraday.default_adapter
     end
 
+    # Default servers for Facebook. These are read into the config OpenStruct,
+    # and can be overridden via Koala.config.
+    DEFAULT_SERVERS = {
+      :graph_server => 'graph.facebook.com',
+      :dialog_host => 'www.facebook.com',
+      :rest_server => 'api.facebook.com',
+      # certain Facebook services (beta, video) require you to access different
+      # servers. If you're using your own servers, for instance, for a proxy,
+      # you can change both the matcher and the replacement values.
+      # So for instance, if you're talking to fbproxy.mycompany.com, you could
+      # set up beta.fbproxy.mycompany.com for FB's beta tier, and set the
+      # matcher to /\.fbproxy/ and the beta_replace to '.beta.fbproxy'.
+      :host_path_matcher => /\.facebook/,
+      :video_replace => '-video.facebook',
+      :beta_replace => '.beta.facebook'
+    }
+
     # The address of the appropriate Facebook server.
     #
     # @param options various flags to indicate which server to use.
@@ -32,10 +49,17 @@ module Koala
     #
     # @return a complete server address with protocol
     def self.server(options = {})
+<<<<<<< HEAD
       server = "http#{options[:use_ssl] ? "s" : ""}://#{Facebook::GRAPH_SERVER}"
       server.gsub!(/\.facebook/, "-video.facebook") if options[:video]
       server.gsub!(/\.facebook/, ".beta.facebook") if options[:beta]
       server
+=======
+      server = "#{options[:rest_api] ? Koala.config.rest_server : Koala.config.graph_server}"
+      server.gsub!(Koala.config.host_path_matcher, Koala.config.video_replace) if options[:video]
+      server.gsub!(Koala.config.host_path_matcher, Koala.config.beta_replace) if options[:beta]
+      "#{options[:use_ssl] ? "https" : "http"}://#{server}"
+>>>>>>> refs/remotes/arsduo/master
     end
 
     # Makes a request directly to Facebook.
@@ -55,7 +79,7 @@ module Koala
     #
     # @return [Koala::HTTPService::Response] a response object representing the results from Facebook
     def self.make_request(path, args, verb, options = {})
-      # if the verb isn't get or post, send it as a post argument
+      # if the verb isn't get or post, send it as a post argument with a method param
       args.merge!({:method => verb}) && verb = "post" if verb != "get" && verb != "post"
 
       # turn all the keys to strings (Faraday has issues with symbols under 1.8.7) and resolve UploadableIOs
@@ -69,11 +93,30 @@ module Koala
         ssl[:verify] = true unless ssl.has_key?(:verify)
       end
 
+      # if an api_version is specified and the path does not already contain
+      # one, prepend it to the path
+      api_version = request_options[:api_version] || Koala.config.api_version
+      if api_version && !path_contains_api_version?(path)
+        begins_with_slash = path[0] == "/"
+        divider = begins_with_slash ? "" : "/"
+        path = "/#{api_version}#{divider}#{path}"
+      end
+
       # set up our Faraday connection
       # we have to manually assign params to the URL or the
-      conn = Faraday.new(server(request_options), request_options, &(faraday_middleware || DEFAULT_MIDDLEWARE))
+      conn = Faraday.new(server(request_options), faraday_options(request_options), &(faraday_middleware || DEFAULT_MIDDLEWARE))
 
-      response = conn.send(verb, path, (verb == "post" ? params : {}))
+      # remember, all non-GET requests are turned into POSTs -- see the the start of this method
+      if verb == "post" && options[:format] == :json
+        response = conn.post do |req|
+          req.path = path
+          req.headers["Content-Type"] = "application/json"
+          req.body = params.to_json
+          req
+        end
+      else
+        response = conn.send(verb, path, (verb == "post" ? params : {}))
+      end
 
       # Log URL information
       Koala::Utils.debug "#{verb.upcase}: #{path} params: #{params.inspect}"
@@ -96,5 +139,25 @@ module Koala
         "#{key_and_value[0].to_s}=#{CGI.escape key_and_value[1]}"
       end).join("&")
     end
+<<<<<<< HEAD
+=======
+
+    # Determines whether a given path already contains an API version.
+    #
+    # @param path the URL path.
+    #
+    # @return true or false accordingly.
+    def self.path_contains_api_version?(path)
+      match = /^\/?(v\d+(?:\.\d+)?)\//.match(path)
+      !!(match && match[1])
+    end
+
+    private
+
+    def self.faraday_options(options)
+      valid_options = [:request, :proxy, :ssl, :builder, :url, :parallel_manager, :params, :headers, :builder_class]
+      Hash[ options.select { |key,value| valid_options.include?(key) } ]
+    end
+>>>>>>> refs/remotes/arsduo/master
   end
 end
