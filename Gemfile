@@ -1,7 +1,12 @@
 source "https://rubygems.org"
 
 group :development do
+<<<<<<< HEAD
   gem 'debugger'
+=======
+  gem 'debugger', :platforms => [:mri_19]
+  gem 'byebug', :platforms => [:mri_20, :mri_21]
+>>>>>>> refs/remotes/arsduo/master
   gem "yard"
 end
 
@@ -11,7 +16,14 @@ group :development, :test do
 end
 
 group :test do
+<<<<<<< HEAD
   gem "rspec", '~> 3.0.0.beta1'
+=======
+  gem "rspec", '~> 3.4'
+  gem "vcr"
+  gem "webmock"
+  gem "codeclimate-test-reporter", require: nil
+>>>>>>> refs/remotes/arsduo/master
 end
 
 gem "jruby-openssl" if defined? JRUBY_VERSION

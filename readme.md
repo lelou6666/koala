@@ -1,11 +1,4 @@
-[![Build Status](https://secure.travis-ci.org/arsduo/koala.png)](http://travis-ci.org/arsduo/koala)
-
-**Note**: a recent Facebook change will cause apps that parse the cookies every
-request to fail with the error "OAuthException: This authorization code has
-been used."  If you're seeing this, please read the note in the [OAuth
-wiki](https://github.com/arsduo/koala/wiki/OAuth) for more information.
-
-Koala
+Koala [![Version](https://img.shields.io/gem/v/koala.svg)](https://rubygems.org/gems/koala) [![Dependencies](https://img.shields.io/gemnasium/arsduo/koala.svg)](https://gemnasium.com/arsduo/koala) [![Build Status](https://img.shields.io/travis/arsduo/koala.svg)](http://travis-ci.org/arsduo/koala) [![Code Climate](https://img.shields.io/codeclimate/github/arsduo/koala.svg)](https://codeclimate.com/github/arsduo/koala) [![Code Coverage](https://img.shields.io/codeclimate/coverage/github/arsduo/koala.svg)](https://codeclimate.com/github/arsduo/koala)
 ====
 [Koala](http://github.com/arsduo/koala) is a Facebook library for Ruby, supporting the Graph API (including the batch requests and photo uploads), the REST API, realtime updates, test users, and OAuth validation.  We wrote Koala with four goals:
 
@@ -14,21 +7,31 @@ Koala
 * Flexible: Koala should be useful to everyone, regardless of their current configuration.  We support JRuby, Rubinius, and REE as well as vanilla Ruby (1.8.7, 1.9.2, 1.9.3, and 2.0.0), and use the Faraday library to provide complete flexibility over how HTTP requests are made.
 * Tested: Koala should have complete test coverage, so you can rely on it.  Our test coverage is complete and can be run against either mocked responses or the live Facebook servers; we're also on [Travis CI](http://travis-ci.org/arsduo/koala/).
 
+**Found a bug? Interested in contributing?** Check out the Maintenance section below!
+
 Installation
----
+------------
 
 In Bundler:
 ```ruby
-gem "koala", "~> 1.7.0rc1"
+gem "koala", "~> 2.2"
 ```
 
 Otherwise:
 ```bash
-[sudo|rvm] gem install koala --pre
+[sudo|rvm] gem install koala
 ```
 
+Upgrading to 2.0+
+-----------------
+
+Koala 2.0 is not a major refactor, but rather a set of small, mostly internal
+refactors, which should not require significant changes by users. See changelog.md for more
+details.
+
 Graph API
-----
+---------
+
 The Graph API is the simple, slick new interface to Facebook's data.
 Using it with Koala is quite straightforward.  First, you'll need an access token, which you can get through
 Facebook's [Graph API Explorer](https://developers.facebook.com/tools/explorer) (click on 'Get Access Token').
@@ -39,19 +42,31 @@ Then, go exploring:
 
 profile = @graph.get_object("me")
 friends = @graph.get_connections("me", "friends")
-@graph.put_connections("me", "feed", :message => "I am writing on my wall!")
+@graph.put_connections("me", "feed", message: "I am writing on my wall!")
 
-# three-part queries are easy too!
+# Three-part queries are easy too!
 @graph.get_connections("me", "mutualfriends/#{friend_id}")
 
-# you can even use the new Timeline API
-# see https://developers.facebook.com/docs/beta/opengraph/tutorial/
-@graph.put_connections("me", "namespace:action", :object => object_url)
+# You can use the Timeline API:
+# (see https://developers.facebook.com/docs/beta/opengraph/tutorial/)
+@graph.put_connections("me", "namespace:action", object: object_url)
 
-# you can add your appsecret in order to pass the appsecret_proof parameter, tying your access tokens to your app secret:
-# see https://developers.facebook.com/docs/reference/api/securing-graph-api/
+# For extra security (recommended), you can provide an appsecret parameter,
+# tying your access tokens to your app secret.
+# (See https://developers.facebook.com/docs/reference/api/securing-graph-api/
+# You'll need to turn on 'Require proof on all calls' in the advanced section
+# of your app's settings when doing this.
 @graph = Koala::Facebook::API.new(oauth_access_token, app_secret)
-# you'll want to turn on 'Require proof on all calls' in the advanced section of your app's settings when doing this.
+
+# Facebook is now versioning their API. # If you don't specify a version, Facebook
+# will default to the oldest version your app is allowed to use. Note that apps
+# created after f8 2014 *cannot* use the v1.0 API. See
+# https://developers.facebook.com/docs/apps/versions for more information.
+#
+# You can specify version either globally:
+Koala.config.api_version = "v2.0"
+# or on a per-request basis
+@graph.get_object("me", {}, api_version: "v2.0")
 ```
 
 The response of most requests is the JSON data returned from the Facebook servers as a Hash.
@@ -99,7 +114,8 @@ the results apart from a long list of array entries:
 Check out the wiki for more details and examples.
 
 The REST API
------
+------------
+
 Where the Graph API and the old REST API overlap, you should choose the Graph API.  Unfortunately, that overlap is far from complete, and there are many important API calls that can't yet be done via the Graph.
 
 Fortunately, Koala supports the REST API using the very same interface; to use this, instantiate an API:
@@ -119,7 +135,8 @@ fql = @api.fql_query(my_fql_query)
 ```
 
 Configuration
-----
+-------------
+
 You can change the host that koala makes requests to (point to a mock server, apigee, runscope etc..)
 ```ruby
 # config/initializers/koala.rb
@@ -137,6 +154,7 @@ tier and video upload matching and replacement strings.
 
 OAuth
 -----
+
 You can use the Graph and REST APIs without an OAuth access token, but the real magic happens when you provide Facebook an OAuth token to prove you're authenticated.  Koala provides an OAuth class to make that process easy:
 ```ruby
 @oauth = Koala::Facebook::OAuth.new(app_id, app_secret, callback_url)
@@ -176,12 +194,13 @@ Or, if for some horrible reason, you're still using session keys, despair not!  
 That's it!  It's pretty simple once you get the hang of it.  If you're new to OAuth, though, check out the wiki and the OAuth Playground example site (see below).
 
 Real-time Updates
------
+-----------------
+
 Sometimes, reaching out to Facebook is a pain -- let it reach out to you instead.  The Graph API allows your application to subscribe to real-time updates for certain objects in the graph; check the [official Facebook documentation](http://developers.facebook.com/docs/api/realtime) for more details on what objects you can subscribe to and what limitations may apply.
 
 Koala makes it easy to interact with your applications using the RealtimeUpdates class:
 ```ruby
-@updates = Koala::Facebook::RealtimeUpdates.new(:app_id => app_id, :secret => secret)
+@updates = Koala::Facebook::RealtimeUpdates.new(app_id: app_id, secret: secret)
 ```
 You can do just about anything with your real-time update subscriptions using the RealtimeUpdates class:
 ```ruby
@@ -202,43 +221,49 @@ Koala::Facebook::RealtimeUpdates.meet_challenge(params, your_verify_token)
 For more information about meet_challenge and the RealtimeUpdates class, check out the Real-Time Updates page on the wiki.
 
 Test Users
------
+----------
 
 We also support the test users API, allowing you to conjure up fake users and command them to do your bidding using the Graph or REST API:
 ```ruby
-@test_users = Koala::Facebook::TestUsers.new(:app_id => id, :secret => secret)
+@test_users = Koala::Facebook::TestUsers.new(app_id: id, secret: secret)
 user = @test_users.create(is_app_installed, desired_permissions)
 user_graph_api = Koala::Facebook::API.new(user["access_token"])
 # or, if you want to make a whole community:
 @test_users.create_network(network_size, is_app_installed, common_permissions)
 ```
 Talking to Facebook
------
+-------------------
 
 Koala uses Faraday to make HTTP requests, which means you have complete control over how your app makes HTTP requests to Facebook.  You can set Faraday options globally or pass them in on a per-request (or both):
 ```ruby
 # Set an SSL certificate to avoid Net::HTTP errors
 Koala.http_service.http_options = {
-  :ssl => { :ca_path => "/etc/ssl/certs" }
+  ssl: { ca_path: "/etc/ssl/certs" }
 }
 # or on a per-request basis
-@api.get_object(id, args_hash, { :timeout => 10 })
+@api.get_object(id, args_hash, { request: { timeout: 10 } })
 ```
 The <a href="https://github.com/arsduo/koala/wiki/HTTP-Services">HTTP Services wiki page</a> has more information on what options are available, as well as on how to configure your own Faraday middleware stack (for instance, to implement request logging).
 
 See examples, ask questions
------
+---------------------------
+
 Some resources to help you as you play with Koala and the Graph API:
 
 * Complete Koala documentation <a href="https://github.com/arsduo/koala/wiki">on the wiki</a>
-* The <a href="http://groups.google.com/group/koala-users">Koala users group</a> on Google Groups, the place for your Koala and API questions
+* Facebook's <a href="http://facebook.stackoverflow.com/">Stack Overflow site</a> is a stupendous place to ask questions, filled with people who will help you figure out what's up with the Facebook API.
 * Facebook's <a href="http://developers.facebook.com/tools/explorer/">Graph API Explorer</a>, where you can play with the Graph API in your browser
 * The Koala-powered <a href="http://oauth.twoalex.com" target="_blank">OAuth Playground</a>, where you can easily generate OAuth access tokens and any other data needed to test out the APIs or OAuth
 * Follow Koala on <a href="http://www.facebook.com/pages/Koala/315368291823667">Facebook</a> and <a href="https://twitter.com/#!/koala_fb">Twitter</a> for SDK updates and occasional news about Facebook API changes.
 
+*Note*: I use the Koala issues tracker on Github to triage and address issues
+with the gem itself; if you need help using the Facebook API, the above
+resources will be far more effective. Depending on how much time I have, Github
+issues filed about how to use the Facebook API may be closed with a reference
+to the Facebook Stack Overflow page.
 
 Testing
------
+-------
 
 Unit tests are provided for all of Koala's methods.  By default, these tests run against mock responses and hence are ready out of the box:
 ```bash
@@ -254,3 +279,25 @@ LIVE=true bundle exec rake spec
 LIVE=true BETA=true bundle exec rake spec
 ```
 By default, the live tests are run against test users, so you can run them as frequently as you want.  If you want to run them against a real user, however, you can fill in the OAuth token, code, and access\_token values in spec/fixtures/facebook_data.yml.  See the wiki for more details.
+
+Maintenance
+-----------
+
+_Pull requests_: Koala exists as it does thanks to the amazing support and work of community members of all
+backgrounds and levels of experience. Pull requests are very welcome! If you have any questions,
+just open an issue.
+
+Please note that this project is released with a Contributor Code of Conduct. By participating in
+this project you agree to abide by its terms. See
+[code_of_conduct.md](https://github.com/arsduo/koala/blob/master/code_of_conduct.md) for more information.
+
+_Schedule_: In order to keep Koala moving forward on a regular and predictable schedule, I will
+address issues and pull requests at least three times a year: late July/early August, late
+December/early January, and late March/early April. I may respond to issues in between maintenance
+periods, but it'll depend on other life/work goings-on.
+
+Breaking/new Facebook changes and other urgent issues obviously will get addressed much more
+quickly. (We've never had a security issue, but obviously that would be priority 0.)
+
+Have questions? Found a breaking bug or urgent issue? [Tweet at me](http://twitter.com/arsduo) --
+I'm always happy to respond.

@@ -166,7 +166,7 @@ module Koala
       #
       # @return the list of users created
       def create_network(network_size, installed = true, permissions = '', options = {})
-        users = (0...network_size).collect { create(installed, permissions, options) }
+        users = (0...network_size).collect { create(installed, permissions, {}, options) }
         friends = users.clone
         users.each do |user|
           # Remove this user from list of friends
@@ -182,13 +182,6 @@ module Koala
       # The Facebook test users management URL for your application.
       def test_user_accounts_path
         @test_user_accounts_path ||= "/#{@app_id}/accounts/test-users"
-      end
-
-      # @private
-      # Legacy accessor for before GraphAPI was unified into API
-      def graph_api
-        Koala::Utils.deprecate("the TestUsers.graph_api accessor is deprecated and will be removed in a future version; please use .api instead.")
-        @api
       end
     end # TestUserMethods
   end # Facebook

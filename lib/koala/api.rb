@@ -9,6 +9,10 @@ module Koala
       # Creates a new API client.
       # @param [String] access_token access token
       # @param [String] app_secret app secret, for tying your access tokens to your app secret
+      #                 If you provide an app secret, your requests will be
+      #                 signed by default, unless you pass appsecret_proof:
+      #                 false as an option to the API call. (See
+      #                 https://developers.facebook.com/docs/graph-api/securing-requests/)
       # @note If no access token is provided, you can only access some public information.
       # @return [Koala::Facebook::API] the API client
       def initialize(access_token = nil, app_secret = nil)
@@ -16,7 +20,7 @@ module Koala
         @app_secret = app_secret
       end
 
-      attr_reader :access_token
+      attr_reader :access_token, :app_secret
 
       include GraphAPIMethods
       include RestAPIMethods
@@ -33,6 +37,10 @@ module Koala
       # @param options request-related options for Koala and Faraday.
       #                See https://github.com/arsduo/koala/wiki/HTTP-Services for additional options.
       # @option options [Symbol] :http_component which part of the response (headers, body, or status) to return
+      # @option options [Symbol] :format which request format to use. Currently, :json is supported
+      # @option options [Symbol] :preserve_form_arguments preserve arrays in arguments, which are
+      #                          expected by certain FB APIs (see the ads API in particular,
+      #                          https://developers.facebook.com/docs/marketing-api/adgroup/v2.4)
       # @option options [Boolean] :beta use Facebook's beta tier
       # @option options [Boolean] :use_ssl force SSL for this request, even if it's tokenless.
       #                                    (All API requests with access tokens use SSL.)
@@ -44,6 +52,10 @@ module Koala
       #
       # @return the body of the response from Facebook (unless another http_component is requested)
       def api(path, args = {}, verb = "get", options = {}, &error_checking_block)
+        # we make a copy of args so the modifications (added access_token & appsecret_proof)
+        # do not affect the received argument
+        args = args.dup
+
         # If a access token is explicitly provided, use that
         # This is explicitly needed in batch requests so GraphCollection
         # results preserve any specific access tokens provided
@@ -53,9 +65,9 @@ module Koala
         end
 
         # Translate any arrays in the params into comma-separated strings
-        args = sanitize_request_parameters(args)
+        args = sanitize_request_parameters(args) unless preserve_form_arguments?(options)
 
-        # add a leading /
+        # add a leading / if needed...
         path = "/#{path}" unless path =~ /^\//
 
         # make the request via the provided service
@@ -97,10 +109,12 @@ module Koala
           result.merge(key => value)
         end
       end
+
+      def preserve_form_arguments?(options)
+        options[:format] == :json || options[:preserve_form_arguments] || Koala.config.preserve_form_arguments
+      end
     end
   end
 end
 
 require 'koala/api/graph_batch_api'
-# legacy support for old pre-1.2 API interfaces
-require 'koala/api/legacy'
