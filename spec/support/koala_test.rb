@@ -5,6 +5,7 @@ module KoalaTest
     attr_accessor :oauth_token, :app_id, :secret, :app_access_token, :code, :session_key
     attr_accessor :oauth_test_data, :subscription_test_data, :search_time
     attr_accessor :test_user_api
+    attr_accessor :vcr_oauth_token
   end
 
   # Test setup
@@ -12,6 +13,7 @@ module KoalaTest
   def self.setup_test_environment!
     setup_rspec
 
+<<<<<<< HEAD
     unless ENV['LIVE']
       # By default the Koala specs are run using stubs for HTTP requests,
       # so they won't fail due to Facebook-imposed rate limits or server timeouts.
@@ -23,11 +25,15 @@ module KoalaTest
       Koala.http_service = Koala::MockHTTPService
       KoalaTest.setup_test_data(Koala::MockHTTPService::TEST_DATA)
     else
+=======
+    if live?
+>>>>>>> refs/remotes/arsduo/master
       # Runs Koala specs through the Facebook servers
       # using data for a real app
       live_data = YAML.load_file(File.join(File.dirname(__FILE__), '../fixtures/facebook_data.yml'))
       KoalaTest.setup_test_data(live_data)
 
+<<<<<<< HEAD
       # allow live tests with different adapters
       adapter = ENV['ADAPTER'] || "typhoeus" # use Typhoeus by default if available
       begin
@@ -36,6 +42,9 @@ module KoalaTest
       rescue LoadError
         puts "Unable to load adapter #{adapter}, using Net::HTTP."
       end
+=======
+      activate_adapter!
+>>>>>>> refs/remotes/arsduo/master
 
       Koala.http_service.http_options[:beta] = true if ENV["beta"] || ENV["BETA"]
 
@@ -45,6 +54,17 @@ module KoalaTest
       else
         KoalaTest.validate_user_info(token)
       end
+    else
+      # By default the Koala specs are run using stubs for HTTP requests,
+      # so they won't fail due to Facebook-imposed rate limits or server timeouts.
+      #
+      # However as a result they are more brittle since
+      # we are not testing the latest responses from the Facebook servers.
+      # To be certain all specs pass with the current Facebook services,
+      # run LIVE=true bundle exec rake spec.
+      activate_vcr!
+      Koala.http_service = Koala::MockHTTPService
+      KoalaTest.setup_test_data(Koala::MockHTTPService::TEST_DATA)
     end
   end
 
@@ -54,7 +74,9 @@ module KoalaTest
     RSpec.configure do |config|
       config.before :each do
         @token = KoalaTest.oauth_token
-        Koala::Utils.stub(:deprecate) # never fire deprecation warnings
+        allow(Koala::Utils).to receive(:deprecate) # never fire deprecation warnings
+        # Clean up Koala config
+        Koala.reset_config
       end
 
       config.after :each do
@@ -71,6 +93,29 @@ module KoalaTest
           # if we errored out or Facebook returned false, track that
           puts "Unable to delete #{@temporary_object_id}: #{result} (probably a photo or video, which can't be deleted through the API)" unless result
         end
+
+      end
+    end
+  end
+
+  # If we're running live tests against the Facebook API, don't use the VCR
+  # fixtures. (Another alternative would be to rerecord those fixtures, but we
+  # don't necessarily want to do that.
+  def self.with_vcr_unless_live(name)
+    if live?
+      yield
+    else
+      begin
+        # if we're using VCR, we don't want to use the mock service, which was
+        # an early implementation of the same type of tool
+        old_adapter = Koala.http_service
+        Koala.http_service = Koala::HTTPService
+        activate_adapter!
+        VCR.use_cassette(name) do
+          yield
+        end
+      ensure
+        Koala.http_service = old_adapter
       end
     end
   end
@@ -80,18 +125,23 @@ module KoalaTest
     self.oauth_test_data = data["oauth_test_data"]
     self.subscription_test_data = data["subscription_test_data"]
     self.oauth_token = data["oauth_token"]
-    self.app_id = data["oauth_test_data"]["app_id"]
+    self.app_id = data["oauth_test_data"]["app_id"].to_s
     self.app_access_token = data["oauth_test_data"]["app_access_token"]
     self.secret = data["oauth_test_data"]["secret"]
     self.code = data["oauth_test_data"]["code"]
     self.session_key = data["oauth_test_data"]["session_key"]
 
+<<<<<<< HEAD
+=======
+    self.vcr_oauth_token = data["vcr_data"]["oauth_token"]
+
+>>>>>>> refs/remotes/arsduo/master
     # fix the search time so it can be used in the mock responses
     self.search_time = data["search_time"] || (Time.now - 3600).to_s
   end
 
   def self.testing_permissions
-    "read_stream, publish_stream, user_photos, user_videos, read_insights"
+    "read_stream, publish_actions, user_photos, user_videos, read_insights"
   end
 
   def self.setup_test_users
@@ -117,6 +167,7 @@ module KoalaTest
   end
 
   def self.create_test_users
+<<<<<<< HEAD
     VCR.use_cassette('setup') do
       begin
         @live_testing_user = @test_user_api.create(true, KoalaTest.testing_permissions, :name => KoalaTest.user1_name)
@@ -127,6 +178,16 @@ module KoalaTest
         Kernel.warn("Problem creating test users! #{e.message}")
         raise
       end
+=======
+    begin
+      @live_testing_user = @test_user_api.create(true, KoalaTest.testing_permissions, :name => KoalaTest.user1_name)
+      @live_testing_friend = @test_user_api.create(true, KoalaTest.testing_permissions, :name => KoalaTest.user2_name)
+      @test_user_api.befriend(@live_testing_user, @live_testing_friend)
+      self.oauth_token = @live_testing_user["access_token"]
+    rescue Exception => e
+      Kernel.warn("Problem creating test users! #{e.message}")
+      raise
+>>>>>>> refs/remotes/arsduo/master
     end
   end
 
@@ -139,6 +200,7 @@ module KoalaTest
   end
 
   def self.validate_user_info(token)
+<<<<<<< HEAD
     VCR.use_cassette("setup") do
       print "Validating permissions for live testing..."
       # make sure we have the necessary permissions
@@ -149,6 +211,16 @@ module KoalaTest
           puts "failed!\n" # put a new line after the print above
           raise ArgumentError, "Your access token must have the read_stream, publish_stream, and user_photos permissions, and lack read_insights.  You have: #{perms.inspect}"
         end
+=======
+    print "Validating permissions for live testing..."
+    # make sure we have the necessary permissions
+    api = Koala::Facebook::API.new(token)
+    perms = api.fql_query("select #{testing_permissions} from permissions where uid = me()")[0]
+    perms.each_pair do |perm, value|
+      if value == (perm == "read_insights" ? 1 : 0) # live testing depends on insights calls failing
+        puts "failed!\n" # put a new line after the print above
+        raise ArgumentError, "Your access token must have #{testing_permissions.join(", ")}, and lack read_insights.  You have: #{perms.inspect}"
+>>>>>>> refs/remotes/arsduo/master
       end
       puts "done!"
     end
@@ -198,10 +270,43 @@ module KoalaTest
   end
 
   def self.page
-    "contextoptional"
+    "facebook"
   end
 
   def self.app_properties
     mock_interface? ? {"desktop" => 0} : {"description" => "A test framework for Koala and its users.  (#{rand(10000).to_i})"}
+  end
+
+  def self.live?
+    ENV['LIVE']
+  end
+
+  def self.activate_vcr!
+    require 'vcr'
+
+    VCR.configure do |c|
+      c.cassette_library_dir = 'spec/fixtures/vcr_cassettes'
+      c.hook_into :webmock # or :fakeweb
+      c.ignore_hosts 'codeclimate.com' # Allow test coverage to be reported
+    end
+  end
+
+  def self.activate_adapter!
+    unless @adapter_activation_attempted
+      # allow live tests with different adapters
+      adapter = ENV['ADAPTER'] || "typhoeus" # use Typhoeus by default if available
+      begin
+        # JRuby doesn't support typhoeus on Travis
+        unless defined? JRUBY_VERSION
+          require adapter
+          require 'typhoeus/adapters/faraday' if adapter.to_s == "typhoeus"
+          Faraday.default_adapter = adapter.to_sym
+        end
+      rescue LoadError
+        puts "Unable to load adapter #{adapter}, using Net::HTTP."
+      ensure
+        @adapter_activation_attempted = true
+      end
+    end
   end
 end

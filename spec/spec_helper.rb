@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 begin
   require 'bundler/setup'
 rescue LoadError
@@ -23,10 +24,16 @@ YAML::ENGINE.yamler = 'syck' if RUBY_VERSION == '1.9.2' && RUBY_PATCHLEVEL < 290
 
 # load custom RSpec matchers
 require 'support/custom_matchers'
+=======
+# Quantify coverage
+require "codeclimate-test-reporter"
+CodeClimate::TestReporter.start
+>>>>>>> refs/remotes/arsduo/master
 
 # load the library
 require 'koala'
 
+<<<<<<< HEAD
 # ensure consistent to_json behavior
 # this must be required first so mock_http_service loads the YAML as expected
 require 'support/ordered_hash'
@@ -43,12 +50,27 @@ VCR.configure do |c|
   c.hook_into :faraday
 end
 
+=======
+# Support files
+Dir["#{File.dirname(__FILE__)}/support/**/*.rb"].each { |f| require f }
+
+# set up our testing environment
+>>>>>>> refs/remotes/arsduo/master
 # load testing data and (if needed) create test users or validate real users
 KoalaTest.setup_test_environment!
 
-# load supporting files for our tests
-require 'support/rest_api_shared_examples'
-require 'support/graph_api_shared_examples'
-require 'support/uploadable_io_shared_examples'
-
 BEACH_BALL_PATH = File.join(File.dirname(__FILE__), "fixtures", "beach.jpg")
+
+<<<<<<< HEAD
+BEACH_BALL_PATH = File.join(File.dirname(__FILE__), "fixtures", "beach.jpg")
+=======
+RSpec.configure do |config|
+  config.mock_with :rspec do |mocks|
+    # This option should be set when all dependencies are being loaded
+    # before a spec run, as is the case in a typical spec helper. It will
+    # cause any verifying double instantiation for a class that does not
+    # exist to raise, protecting against incorrectly spelt names.
+    mocks.verify_doubled_constant_names = true
+  end
+end
+>>>>>>> refs/remotes/arsduo/master

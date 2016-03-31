@@ -9,8 +9,8 @@ module Koala
       include GraphAPIMethods
 
       attr_reader :original_api
-      def initialize(access_token, api)
-        super(access_token)
+      def initialize(api)
+        super(api.access_token, api.app_secret)
         @original_api = api
       end
 
@@ -19,12 +19,15 @@ module Koala
       end
 
       def graph_call_in_batch(path, args = {}, verb = "get", options = {}, &post_processing)
+        # normalize options for consistency
+        options = Koala::Utils.symbolize_hash(options)
+
         # for batch APIs, we queue up the call details (incl. post-processing)
         batch_calls << BatchOperation.new(
           :url => path,
           :args => args,
           :method => verb,
-          :access_token => options['access_token'] || access_token,
+          :access_token => options[:access_token] || access_token,
           :http_options => options,
           :post_processing => post_processing
         )
@@ -60,35 +63,43 @@ module Koala
             batch_op = batch_calls[index]
             index += 1
 
+            raw_result = nil
             if call_result
-              if ( error = check_response(call_result['code'], call_result['body'].to_s) ) 
-                error
+              parsed_headers = if call_result.has_key?('headers')
+                call_result['headers'].inject({}) { |headers, h| headers[h['name']] = h['value']; headers}
+              else
+                {}
+              end
+
+              if (error = check_response(call_result['code'], call_result['body'].to_s, parsed_headers))
+                raw_result = error
               else
                 # (see note in regular api method about JSON parsing)
                 body = MultiJson.load("[#{call_result['body'].to_s}]")[0]
 
                 # Get the HTTP component they want
-                data = case batch_op.http_options[:http_component]
+                raw_result = case batch_op.http_options[:http_component]
                 when :status
                   call_result["code"].to_i
                 when :headers
                   # facebook returns the headers as an array of k/v pairs, but we want a regular hash
-                  call_result['headers'].inject({}) { |headers, h| headers[h['name']] = h['value']; headers}
+                  parsed_headers
                 else
                   body
                 end
-
-                # process it if we are given a block to process with
-                batch_op.post_processing ? batch_op.post_processing.call(data) : data
               end
+            end
+
+            # turn any results that are pageable into GraphCollections
+            # and pass to post-processing callback if given
+            result = GraphCollection.evaluate(raw_result, @original_api)
+            if batch_op.post_processing
+              batch_op.post_processing.call(result)
             else
-              nil
+              result
             end
           end
         end
-
-        # turn any results that are pageable into GraphCollections
-        batch_result.inject([]) {|processed_results, raw| processed_results << GraphCollection.evaluate(raw, @original_api)}
       end
 
     end

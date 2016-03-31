@@ -1,22 +1,21 @@
-source :rubygems
+source "https://rubygems.org"
 
 group :development do
+  gem 'debugger', :platforms => [:mri_19]
+  gem 'byebug', :platforms => [:mri_20, :mri_21]
   gem "yard"
 end
 
 group :development, :test do
+  gem "rake"
   gem "typhoeus" unless defined? JRUBY_VERSION
+end
 
-  # Testing infrastructure
-  gem 'guard'
-  gem 'guard-rspec'
-  gem "parallel_tests"
-
-  if RUBY_PLATFORM =~ /darwin/
-    # OS X integration
-    gem "ruby_gntp"
-    gem "rb-fsevent"
-  end
+group :test do
+  gem "rspec", '~> 3.4'
+  gem "vcr"
+  gem "webmock"
+  gem "codeclimate-test-reporter", require: nil
 end
 
 gem "jruby-openssl" if defined? JRUBY_VERSION
