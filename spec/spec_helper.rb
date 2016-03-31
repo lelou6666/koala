@@ -1,18 +1,25 @@
-begin
-  require 'bundler/setup'
-rescue LoadError
-  puts 'although not required, bundler is recommended for running the tests'
-end
+# Quantify coverage
+require "codeclimate-test-reporter"
+CodeClimate::TestReporter.start
 
-# load the libraries
+# load the library
 require 'koala'
 
-# load testing data libraries
-require 'support/koala_test'
-require 'support/mock_http_service'
-require 'support/setup_mocks_or_live'
-require 'support/rest_api_shared_examples'
-require 'support/graph_api_shared_examples'
-require 'support/uploadable_io_shared_examples'
+# Support files
+Dir["#{File.dirname(__FILE__)}/support/**/*.rb"].each { |f| require f }
+
+# set up our testing environment
+# load testing data and (if needed) create test users or validate real users
+KoalaTest.setup_test_environment!
 
 BEACH_BALL_PATH = File.join(File.dirname(__FILE__), "fixtures", "beach.jpg")
+
+RSpec.configure do |config|
+  config.mock_with :rspec do |mocks|
+    # This option should be set when all dependencies are being loaded
+    # before a spec run, as is the case in a typical spec helper. It will
+    # cause any verifying double instantiation for a class that does not
+    # exist to raise, protecting against incorrectly spelt names.
+    mocks.verify_doubled_constant_names = true
+  end
+end
