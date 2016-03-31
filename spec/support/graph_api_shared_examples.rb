@@ -90,11 +90,11 @@ shared_examples_for "Koala GraphAPI" do
 
   describe "#get_picture" do
     it "can access a user's picture" do
-      expect(@api.get_picture(KoalaTest.user2)).to match(/http[s]*\:\/\//)
+      expect(@api.get_picture(KoalaTest.user2)).to match(/https?\:\/\//)
     end
 
     it "can access a user's picture, given a picture type"  do
-      expect(@api.get_picture(KoalaTest.user2, {:type => 'large'})).to match(/^http[s]*\:\/\//)
+      expect(@api.get_picture(KoalaTest.user2, {:type => 'large'})).to match(/^https?\:\/\//)
     end
 
     it "works even if Facebook returns nil" do
@@ -103,9 +103,24 @@ shared_examples_for "Koala GraphAPI" do
     end
   end
 
-  it "can access a user's picture data" do
-    result = @api.get_user_picture_data(KoalaTest.user2)
-    expect(result.key?("is_silhouette")).to be_truthy
+  describe "#get_picture_data" do
+    it "can access a user's picture data" do
+      result = @api.get_picture_data(KoalaTest.user2)
+      expect(result).to be_kind_of(Hash)
+      expect(result["data"]).to be_kind_of(Hash)
+      expect(result['data']).to be_truthy
+      expect(result['data'].keys).to include('is_silhouette', 'url')
+    end
+  end
+
+  describe "#get_user_picture_data" do
+    it "can access a user's picture data" do
+      result = @api.get_picture_data(KoalaTest.user2)
+      expect(result).to be_kind_of(Hash)
+      expect(result["data"]).to be_kind_of(Hash)
+      expect(result['data']).to be_truthy
+      expect(result['data'].keys).to include('is_silhouette', 'url')
+    end
   end
 
   it "can access connections from public Pages" do
